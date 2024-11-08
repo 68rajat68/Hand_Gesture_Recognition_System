@@ -6,6 +6,7 @@ import threading
 import numpy as np
 import time
 import pyautogui
+import math
 
 pyautogui.FAILSAFE = False
 
@@ -44,10 +45,6 @@ double_delay = 0
 
 l_a_stop = False
 r_a_stop = False
-
-
-# Initialize dragging state
-dragging = False
 
 
 def l_clk_delay():
@@ -90,6 +87,10 @@ r_a_clk_thread = threading.Thread(target=r_a_clk_delay)
 double_clk_thread = threading.Thread(target=double_clk_delay)
 
 
+
+# Initialize dragging state
+dragging = False
+
 while True:
     success, img = cap.read()
     if success:
@@ -98,7 +99,6 @@ while True:
         cv2.rectangle(img, (frameR, 20), (cam_w - 20, cam_h - frameR + 40), (0, 145, 255), 2)
 
         if hands:
-            
             lmlist = hands[0]['lmList'] 
             thumb_x,thumb_y=lmlist[4][0], lmlist[4][1]
             thumb_x3,thumb_y3=lmlist[3][0], lmlist[3][1]
@@ -118,15 +118,14 @@ while True:
             if centerX>frameR+40 and centerX<cam_w-40 and centerY>100 and centerY<cam_h-frameR + 80 :
                 #Cursor point
                 if fingers[1] == 1 and fingers[2] == 0 and fingers[0] == 1 and fingers[3] == 0 and fingers[4] == 0:
-                    conv_x = int(np.interp(ind_d_x, (frameR+30, cam_w - 70), (0, screen_width)))
-                    conv_y = int(np.interp(ind_d_y, (60, cam_h - frameR -30), (0, screen_height)))
+                    conv_x = int(np.interp(ind_x, (frameR+30, cam_w - 70), (0, screen_width)))
+                    conv_y = int(np.interp(ind_y, (60, cam_h - frameR -30), (0, screen_height)))
                     mouse.move(conv_x, conv_y)
-
+                
                 
                 # Mouse Scrolling
                 if fingers[1] == 1 and fingers[2] == 1 and fingers[0] == 0  and fingers[3] == 0 and fingers[4] == 0:
                     if abs(ind_x - mid_x) < 25:
-                        print("Scrolling Down")
                         mouse.wheel(delta=-1)
                     # print(math.sqrt((mid_x - ind_x) ** 2 + (mid_y - ind_y) ** 2))
                     # print(abs(ind_x - mid_x))
@@ -134,14 +133,11 @@ while True:
                     #     mouse.wheel(delta=-1)
                 if fingers[1] == 1 and fingers[2] == 1 and fingers[0] == 0 and fingers[3] == 0 and fingers[4] == 1:
                     if abs(ind_x - mid_x) < 25:
-                        print("Scrolling Up")
                         mouse.wheel(delta=1)
                     # print(abs(ind_x - mid_x))
                     # print(math.sqrt((mid_x - ind_x) ** 2 + (mid_y - ind_y) ** 2))
                     # if (math.sqrt((mid_x - ind_x) ** 2 + (mid_y - ind_y) ** 2) < 110):
                     #     mouse.wheel(delta=1)
-                
-                
                 
                 
                 # Mouse text selection
@@ -150,21 +146,21 @@ while True:
                     if abs(ind_x - thumb_x3) < 30:
                         if not dragging:
                             dragging = True
-                            print("Start dragging.")
+                            print("Start dragging - Thumb and Index are close.")
                             pyautogui.mouseDown()  # Start dragging
                             
                         # If already dragging, continue moving the mouse
                         if dragging:
                             # Map index finger coordinates to screen coordinates
-                            conv_x = int(np.interp(ind_d_x, (frameR+30, cam_w - 70), (0, screen_width)))
-                            conv_y = int(np.interp(ind_d_y, (60, cam_h - frameR - 30), (0, screen_height)))
+                            conv_x = int(np.interp(ind_x, (frameR+30, cam_w - 70), (0, screen_width)))
+                            conv_y = int(np.interp(ind_y, (60, cam_h - frameR - 30), (0, screen_height)))
                             pyautogui.moveTo(conv_x, conv_y)
 
                     # If thumb is not close to index, stop dragging
                     else:
                         if dragging:
                             dragging = False
-                            print("Stop dragging.")
+                            print("Stop dragging - Thumb moved away.")
                             pyautogui.mouseUp()  # End dragging
 
                 # If gesture changes (not a dragging gesture), ensure mouse is up
@@ -172,31 +168,30 @@ while True:
                     if dragging:
                         pyautogui.mouseUp()
                         dragging = False
-                        print("Gesture changed.")
-                        
+                        print("Gesture changed - Ensuring drag is stopped.")
                 
                 
-                # Mouse Button Clicks
+                # right and left click
                 if fingers[1] == 1 and fingers[2] == 1 and fingers[0] == 1 and fingers[3]==0:
                     # print(abs(ind_x - mid_x))
                     if abs(ind_x - mid_x) < 30:
                         # Left Click
                         if fingers[4] == 0 and fingers[1]==1 and fingers[2]==1  and fingers[3]==0 and l_delay == 0:
                             mouse.click(button="left")
+                            print("Left Click")
                             l_delay = 1
                             if not l_clk_thread.is_alive():
                                 l_clk_thread = threading.Thread(target=l_clk_delay)
                                 l_clk_thread.start()
-                                print("Left Click")
         
                         #right Click
                         if fingers[4] == 1 and fingers[1]==1 and fingers[2]==1  and fingers[3]==0 and r_delay == 0:
                             mouse.click(button = "right")
+                            print("Right Click")
                             r_delay = 1
                             if not r_clk_thread.is_alive():
                                 r_clk_thread = threading.Thread(target=r_clk_delay)
                                 r_clk_thread.start()
-                                print("Right Click")
                 
                 # Keyboard Arrow Control 
                 if fingers[0] == 0 and fingers[1] == 0 and fingers[2] == 0 and fingers[3] == 0 and fingers[4] == 0 and l_a_delay == 0:
@@ -238,18 +233,65 @@ while True:
                     
                     if(dis > 75 ):
                         cv2.line(img,(ind_d_x,ind_d_y),(thumb_x,thumb_y),(0,255,0),5)
-                        print("Volume Up")
                         pyautogui.press("volumeup")    
                     else:
                         cv2.line(img,(ind_d_x,ind_d_y),(thumb_x,thumb_y),(0,0,255),5)
-                        print("Volume Down")
-                        pyautogui.press("volumedown")
+                        pyautogui.press("volumedown") 
+                
+                
+                # if fingers[1] == 1 and fingers[2] == 0 and fingers[0] == 0 and fingers[3]==0 and fingers[4] == 0:
+                #     # print(abs(ind_x - mid_x))
+                    
+                #     if abs(ind_x - thumb_x3) < 30:
+                #         if not dragging:
+                #             dragging = True
+                #             print("Thumbs Up detected. Start dragging!")
+                #             # Simulate mouse down event to start drag
+                #             pyautogui.mouseDown()
+                #         # print("Touched....")
+                #         # # Left Click
+                #         # if fingers[1]==1 and fingers[2]==0  and fingers[3]==0 and fingers[0]==0 and fingers[4]==0:
+                #         #     mouse.click(button="left")
+                #         #     print("Left Click")
+                #         #     # l_delay = 1
+                #         #     # if not l_clk_thread.is_alive():
+                #         #     #     l_clk_thread = threading.Thread(target=l_clk_delay)
+                #         #     #     l_clk_thread.start()
+                #         #     #     print("Left Click")
+                #     else:
+                #         if dragging:
+                #             dragging = False
+                #             print("Thumbs Down detected. Stop dragging!")
+                #             # Simulate mouse up event to drop the object
+                #             pyautogui.mouseUp()
+                #         print("Not Touched...")
+                    
+                    
+                #     if fingers[0] == 0 and fingers[1] == 1 and fingers[2] == 0 and dragging:
+                #         # Get the wrist position to follow the movement
+                #         # wrist = landmarks.landmark[mp_hands.HandLandmark.WRIST]
+                #         # x, y = int(wrist.x * frame.shape[1]), int(wrist.y * frame.shape[0])
 
-                        
-                        
-                        
-                        
-                                    
+                #         # # Map wrist coordinates to screen coordinates
+                #         # screen_x = min(screen_width, max(0, x * screen_width / frame.shape[1]))
+                #         # screen_y = min(screen_height, max(0, y * screen_height / frame.shape[0]))
+
+                #         conv_x = int(np.interp(ind_x, (frameR+30, cam_w - 70), (0, screen_width)))
+                #         conv_y = int(np.interp(ind_y, (60, cam_h - frameR -30), (0, screen_height)))
+                #         # Move the mouse to tdetected position                                                                                                                                                                              
+                #         pyautogui.moveTo(conv_x, conv_y)
+        
+                #         #right Click
+                #         # if fingers[4] == 1 and fingers[1]==1 and fingers[2]==1  and fingers[3]==0 and r_delay == 0:
+                #         #     mouse.click(button = "right")
+                #         #     r_delay = 1
+                #         #     if not r_clk_thread.is_alive():
+                #         #         r_clk_thread = threading.Thread(target=r_clk_delay)
+                #         #         r_clk_thread.start()
+                #         #         print("Right Clickhe ")
+                # else :
+                #     pyautogui.mouseUp()
+                #     dragging = False        
 
         aspect_ratio = img.shape[1] / img.shape[0]
         imgSmall = cv2.resize(img, ( int(hSmall * aspect_ratio), hSmall))
@@ -266,3 +308,110 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+
+import cv2
+import mediapipe as mp
+# import maths
+import pyautogui
+
+# Initialize MediaPipe Hands module
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+# Initialize OpenCV to capture video from webcam
+cap = cv2.VideoCapture(0)
+
+# Initialize dragging state
+dragging = False
+
+# Set the screen size (optional, for tracking the hand's position on screen)
+screen_width, screen_height = pyautogui.size()
+
+def is_thumbs_up(hand_landmarks):
+    # Get coordinates for thumb base (Wrist) and thumb tip
+    thumb_base = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_CMC]
+    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+    
+    # Check if the thumb tip is above the thumb base (Thumbs Up)
+    return thumb_tip.y < thumb_base.y
+
+def is_thumbs_down(hand_landmarks):
+    # Get coordinates for thumb base (Wrist) and thumb tip
+    thumb_base = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_CMC]
+    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
+    
+    # Check if the thumb tip is below the thumb base (Thumbs Down)
+    return thumb_tip.y > thumb_base.y
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Flip the frame horizontally for a later selfie-view display
+    frame = cv2.flip(frame, 1)
+
+    # Convert the BGR frame to RGB as MediaPipe requires RGB
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    # Process the frame and get the hand landmarks
+    results = hands.process(rgb_frame)
+
+    if results.multi_hand_landmarks:
+        for landmarks in results.multi_hand_landmarks:
+            # Check if it's a Thumbs Up gesture (start dragging)
+            if is_thumbs_up(landmarks):
+                if not dragging:
+                    dragging = True
+                    print("Thumbs Up detected. Start dragging!")
+                    # Simulate mouse down event to start drag
+                    pyautogui.mouseDown()
+
+            # Check if it's a Thumbs Down gesture (stop dragging)
+            if is_thumbs_down(landmarks):
+                if dragging:
+                    dragging = False
+                    print("Thumbs Down detected. Stop dragging!")
+                    # Simulate mouse up event to drop the object
+                    pyautogui.mouseUp()
+
+            if dragging:
+                # Get the wrist position to follow the movement
+                wrist = landmarks.landmark[mp_hands.HandLandmark.WRIST]
+                x, y = int(wrist.x * frame.shape[1]), int(wrist.y * frame.shape[0])
+
+                # Map wrist coordinates to screen coordinates
+                screen_x = min(screen_width, max(0, x * screen_width / frame.shape[1]))
+                screen_y = min(screen_height, max(0, y * screen_height / frame.shape[0]))
+
+                # Move the mouse to the detected position
+                pyautogui.moveTo(screen_x, screen_y)
+
+            # Draw landmarks and connections
+            mp.solutions.drawing_utils.draw_landmarks(frame, landmarks, mp_hands.HAND_CONNECTIONS)
+
+    # Show the frame with the hand landmarks
+    cv2.imshow("Hand Gesture Drag and Drop", frame)
+
+    # End loop if 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+
+'''
